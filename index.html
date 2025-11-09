@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Validation & Humanizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            touch-action: manipulation;
+        }
+        .container {
+            max-width: 900px;
+        }
+        textarea, .result-box {
+            min-height: 250px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .result-box {
+            background-color: #fff;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            white-space: pre-wrap;
+        }
+        .btn-primary {
+            transition: all 0.15s ease-in-out;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 10px 15px -3px rgb(59 130 246 / 0.3), 0 4px 6px -4px rgb(59 130 246 / 0.3);
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tag-success { background-color: #d1fae5; color: #065f46; }
+        .tag-fail { background-color: #fee2e2; color: #991b1b; }
+        .tag-info { background-color: #e0f2fe; color: #075985; }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="container mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Article Refiner 🖊️</h1>
+            <p class="text-gray-500">Humanize content and validate sources using the Gemini API.</p>
+        </header>
+
+        <section class="bg-white p-6 rounded-xl shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-3 text-indigo-700">Paste Article Here</h2>
+            <textarea id="articleInput"
+                      class="w-full p-4 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      placeholder="Paste your full article text here. 
+Crucial: Place the reference list/bibliography at the very end, separated by a line break, with each reference on a new line (e.g., 'REFERENCES' or 'BIBLIOGRAPHY' followed by the list).
+
+Example Article Body:
+The mechanism for humanizing AI-generated content begins with an input and analysis phase. (Smith, 2023) Users provide AI-generated text, which is first cleaned.
+
+Example Reference List:
+REFERENCES
+Smith, J. (2023). The science of non-robotic language. Journal of Linguistics.
+Doe, A. (2024). Contractions in academic writing."></textarea>
+
+            <button onclick="processArticle()" id="processBtn"
+                    class="btn-primary w-full mt-4 flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                <span id="buttonText">Process & Validate Article</span>
+                <div id="loadingSpinner" class="spinner hidden"></div>
+            </button>
+        </section>
+
+        <section id="resultsSection" class="bg-white p-6 rounded-xl shadow-lg hidden">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Results</h2>
+
+            <!-- Validation and Cross-Check Summary -->
+            <div id="validationSummary" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Data will be injected here -->
+            </div>
+
+            <!-- Paraphrased Text Output -->
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Ultra-Paraphrased Content</h3>
+                <div id="paraphrasedOutput" class="result-box text-gray-700 text-sm">
+                    Processing...
+                </div>
+                <button onclick="copyToClipboard('paraphrasedOutput')"
+                    class="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium">
+                    Copy to Clipboard
+                </button>
+            </div>
+
+            <!-- Detailed Reference Check -->
+            <div>
+                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Reference & Grounding Check</h3>
+                <div id="referenceCheckOutput" class="result-box text-sm space-y-3">
+                    <!-- Detailed check results will be injected here -->
+                </div>
+            </div>
+
+        </section>
+        
+        <div id="messageBox" class="fixed bottom-4 right-4 p-3 rounded-lg shadow-xl text-white hidden transition-opacity duration-300 z-50"></div>
+    </div>
+
+    <script>
+        const API_MODEL = 'gemini-2.5-flash-preview-09-2025';
+        const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent`;
+        const apiKey = ""; // Canvas will provide this
+
+        const articleInput = document.getElementById('articleInput');
+        const processBtn = document.getElementById('processBtn');
+        const buttonText = document.getElementById('buttonText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const resultsSection = document.getElementById('resultsSection');
+        const paraphrasedOutput = document.getElementById('paraphrasedOutput');
+        const validationSummary = document.getElementById('validationSummary');
+        const referenceCheckOutput = document.getElementById('referenceCheckOutput');
+        const messageBox = document.getElementById('messageBox');
+
+        /**
+         * Utility function to display a temporary message/alert.
+         */
+        function showMessage(text, type = 'info') {
+            messageBox.textContent = text;
+            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'bg-blue-500');
+            messageBox.classList.add('opacity-100');
+
+            if (type === 'error') messageBox.classList.add('bg-red-500');
+            else if (type === 'success') messageBox.classList.add('bg-green-500');
+            else messageBox.classList.add('bg-blue-500');
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100');
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+        
+        /**
+         * Copies text from a specified element ID to the clipboard.
+         */
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                // document.execCommand('copy') is the reliable method in an iframe
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showMessage('Text copied to clipboard!', 'success');
+                } else {
+                    throw new Error('Fallback copy failed.');
+                }
+            } catch (err) {
+                showMessage('Could not copy text. Please select and copy manually.', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        /**
+         * Generalized Gemini API caller with exponential backoff.
+         */
+        async function callGemini(prompt, systemInstruction, useSearch, retries = 3) {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                config: {
+                    temperature: 0.8, // Higher temp for creative paraphrasing
+                }
+            };
+            if (useSearch) {
+                payload.tools = [{ "google_search": {} }];
+            }
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const url = `${BASE_URL}?key=${apiKey}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 429 && i < retries - 1) {
+                            // Rate limit: wait and retry with exponential backoff
+                            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw new Error(`API error: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Error: Could not retrieve generated text.';
+                    const groundingSources = result.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
+                    
+                    return { text, sources: groundingSources };
+
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    if (i === retries - 1) throw new Error("Failed to connect to the AI service after multiple retries.");
+                }
+            }
+        }
+
+        /**
+         * Core function to paraphrase the article body.
+         */
+        async function paraphraseText(text) {
+            const systemPrompt = "You are a specialized content humanizer and editor. Your task is to take formal, potentially AI-generated content and rephrase it drastically to mimic authentic, natural human writing. Use varied sentence structures, incorporate contractions, slight repetition, colloquialisms, and conversational flow. The goal is to make the text completely undetectable as machine-generated while preserving all original technical meaning. Do NOT change the meaning or the in-text citations.";
+            
+            try {
+                const response = await callGemini(text, systemPrompt, false);
+                return response.text;
+            } catch (e) {
+                console.error("Paraphrasing failed:", e);
+                return `[ERROR]: Failed to humanize content. ${e.message}`;
+            }
+        }
+
+        /**
+         * Core function to validate a single reference using Google Search grounding.
+         */
+        async function validateReference(referenceTitle) {
+            const systemPrompt = "Act as a verification expert. Search the web for evidence supporting the reference title provided. Confirm if the provided text appears to be a real, verifiable source (book, article, or widely accepted fact). Respond ONLY with the title of the source if you find supporting evidence, or 'UNVERIFIED' otherwise. Do not add any extra text or explanation.";
+            
+            try {
+                const response = await callGemini(referenceTitle, systemPrompt, true);
+                
+                // Check if the model returned an unverified status or if search failed
+                if (response.text.toUpperCase().includes('UNVERIFIED') || response.sources.length === 0) {
+                    return { status: 'UNVERIFIED', title: referenceTitle, sources: [] };
+                }
+                
+                // Check for real grounding sources
+                const realSources = response.sources.filter(s => s.web && s.web.uri);
+
+                if (realSources.length > 0) {
+                    return { status: 'VERIFIED', title: referenceTitle, sources: realSources };
+                } else {
+                    return { status: 'UNVERIFIED', title: referenceTitle, sources: [] };
+                }
+
+            } catch (e) {
+                console.error("Validation failed for:", referenceTitle, e);
+                return { status: 'ERROR', title: referenceTitle, sources: [] };
+            }
+        }
+
+
+        /**
+         * Client-side function to cross-check citations against the reference list.
+         */
+        function crossCheckCitations(body, references) {
+            const citationRegex = /\(?[A-Z][a-z]+, \d{4}\)?|\(\d{4}\)|\[\d+\]/g; // Basic regex for (Author, Year) or [Number]
+            const citations = [...new Set(body.match(citationRegex) || [])];
+            
+            let citedInText = 0;
+            let unreferencedInText = 0;
+            let unlinkedReferences = 0;
+
+            const referenceTitles = references.map(ref => ref.toLowerCase().split(' ')[0].replace(/[^a-z]/g, ''));
+
+            // 1. Check if citations in text are in the reference list (Simplified: check for author name match)
+            const citationCheck = citations.map(citation => {
+                const match = citation.match(/([A-Z][a-z]+)/); // Extract potential Author
+                const author = match ? match[1].toLowerCase() : null;
+
+                const isReferenced = author && referenceTitles.some(title => title.includes(author));
+
+                if (isReferenced) {
+                    citedInText++;
+                } else {
+                    unreferencedInText++;
+                }
+                
+                return { citation, isReferenced };
+            });
+
+            // 2. Check if all references are cited in text (Simplified)
+            const referenceCheck = references.map(ref => {
+                const match = ref.match(/([A-Z][a-z]+)/); // Extract potential Author
+                const author = match ? match[1].toLowerCase() : null;
+
+                // Check if this author is in any of the extracted citations
+                const isCited = author && citationCheck.some(c => c.citation.toLowerCase().includes(author));
+
+                if (!isCited) {
+                    unlinkedReferences++;
+                }
+
+                return { reference: ref, isCited };
+            });
+
+            return {
+                citationCheck,
+                referenceCheck,
+                citedInText,
+                unreferencedInText,
+                totalReferences: references.length,
+                unlinkedReferences
+            };
+        }
+
+
+        /**
+         * Main function triggered by the user button.
+         */
+        async function processArticle() {
+            const fullText = articleInput.value.trim();
+            if (fullText.length < 50) {
+                showMessage("Please paste a longer article text to process.", 'error');
+                return;
+            }
+
+            // UI State: Disable button, show spinner
+            processBtn.disabled = true;
+            buttonText.textContent = "Processing...";
+            loadingSpinner.classList.remove('hidden');
+            resultsSection.classList.add('hidden');
+            paraphrasedOutput.textContent = "Beginning analysis and humanization...";
+            validationSummary.innerHTML = "";
+            referenceCheckOutput.innerHTML = "";
+            
+            try {
+                // 1. Separate body from references
+                const parts = fullText.split(/REFERENCES|BIBLIOGRAPHY|SOURCES/i);
+                const body = parts[0].trim();
+                let references = [];
+
+                if (parts.length > 1) {
+                    references = parts[1].split('\n').map(line => line.trim()).filter(line => line.length > 5);
+                }
+
+                // --- PHASE 1: Paraphrasing ---
+                paraphrasedOutput.textContent = "Phase 1/3: Ultra-paraphrasing content (this may take a moment)...";
+                const paraphrased = await paraphraseText(body);
+                paraphrasedOutput.textContent = paraphrased;
+
+
+                // --- PHASE 2: Cross-Check (Client-side) ---
+                paraphrasedOutput.textContent += "\n\nPhase 2/3: Performing Citation Cross-Check...";
+                const crossCheckResults = crossCheckCitations(body, references);
+
+
+                // --- PHASE 3: Reference Validation (Grounding API) ---
+                paraphrasedOutput.textContent += "\n\nPhase 3/3: Validating external references via Google Search Grounding...";
+                
+                const validationPromises = references.map(ref => {
+                    // Use a short snippet for validation to keep API calls efficient
+                    const titleSnippet = ref.split('.').slice(0, 2).join('.').trim();
+                    return validateReference(titleSnippet);
+                });
+
+                const validationResults = await Promise.all(validationPromises);
+                
+                // --- Display Results ---
+
+                // Summary Tags
+                validationSummary.innerHTML = `
+                    <div class="p-4 rounded-lg shadow tag-info">
+                        <p class="text-xs font-bold uppercase mb-1">Total References</p>
+                        <p class="text-2xl">${references.length}</p>
+                    </div>
+                    <div class="p-4 rounded-lg shadow ${crossCheckResults.unreferencedInText > 0 || crossCheckResults.unlinkedReferences > 0 ? 'tag-fail' : 'tag-success'}">
+                        <p class="text-xs font-bold uppercase mb-1">Citation Match Issues</p>
+                        <p class="text-2xl">${crossCheckResults.unreferencedInText + crossCheckResults.unlinkedReferences}</p>
+                        <p class="text-xs mt-1">(${crossCheckResults.unreferencedInText} unreferenced in text / ${crossCheckResults.unlinkedReferences} unlinked references)</p>
+                    </div>
+                    <div class="p-4 rounded-lg shadow ${validationResults.every(r => r.status === 'VERIFIED') ? 'tag-success' : 'tag-fail'}">
+                        <p class="text-xs font-bold uppercase mb-1">References Verified</p>
+                        <p class="text-2xl">${validationResults.filter(r => r.status === 'VERIFIED').length} / ${references.length}</p>
+                    </div>
+                `;
+
+                // Detailed Cross-Check Output
+                let crossCheckHtml = '<p class="font-bold text-sm mb-2 text-red-700">Citation Cross-Check Issues:</p>';
+                if (crossCheckResults.unreferencedInText > 0) {
+                    crossCheckHtml += `<p class="text-sm text-red-500">❌ The following in-text citations might be missing from the reference list: ${crossCheckResults.citationCheck.filter(c => !c.isReferenced).map(c => c.citation).join(', ')}</p>`;
+                }
+                if (crossCheckResults.unlinkedReferences > 0) {
+                    crossCheckHtml += `<p class="text-sm text-red-500">❌ The following references were not found to be cited in the article body: ${crossCheckResults.referenceCheck.filter(c => !c.isCited).map(c => c.reference.substring(0, 30) + '...').join('; ')}</p>`;
+                }
+                if (crossCheckResults.unreferencedInText === 0 && crossCheckResults.unlinkedReferences === 0) {
+                    crossCheckHtml = '<p class="font-bold text-sm text-green-700">✅ Citation Cross-Check: All in-text citations match a reference, and all references are cited.</p>';
+                }
+                referenceCheckOutput.innerHTML += `<div class="p-3 rounded-lg border-b border-gray-200">${crossCheckHtml}</div>`;
+
+
+                // Detailed Validation Output
+                let validationHtml = '<p class="font-bold text-sm mb-2 text-green-700">Reference Grounding Results:</p><ul class="space-y-2">';
+                validationResults.forEach((result, index) => {
+                    const statusClass = result.status === 'VERIFIED' ? 'tag-success' : (result.status === 'UNVERIFIED' ? 'tag-fail' : 'tag-info');
+                    const statusIcon = result.status === 'VERIFIED' ? '✅' : (result.status === 'UNVERIFIED' ? '⚠️' : '❓');
+                    
+                    let sourcesHtml = '';
+                    if (result.status === 'VERIFIED' && result.sources.length > 0) {
+                        const firstSource = result.sources[0].web;
+                        sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Found Source: <a href="${firstSource.uri}" target="_blank" class="text-indigo-500 hover:underline">${firstSource.title}</a></span>`;
+                    } else if (result.status === 'UNVERIFIED') {
+                         sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Grounding search could not verify a definitive source.</span>`;
+                    }
+
+                    validationHtml += `
+                        <li class="p-3 rounded-lg ${statusClass}">
+                            <div class="flex items-start">
+                                <span class="text-lg mr-2">${statusIcon}</span>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-700">${references[index]}</p>
+                                    ${sourcesHtml}
+                                </div>
+                            </div>
+                        </li>
+                    `;
+                });
+                validationHtml += '</ul>';
+                referenceCheckOutput.innerHTML += validationHtml;
+
+
+                resultsSection.classList.remove('hidden');
+                showMessage("Article processed successfully!", 'success');
+
+            } catch (error) {
+                console.error("An ultimate error occurred:", error);
+                paraphrasedOutput.textContent = `An error occurred during processing: ${error.message}. Please check your input and try again.`;
+                showMessage("Processing failed. See console for details.", 'error');
+            } finally {
+                // UI State: Re-enable button, hide spinner
+                processBtn.disabled = false;
+                buttonText.textContent = "Process & Validate Article";
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
+
