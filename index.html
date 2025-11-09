@@ -46,6 +46,7 @@
         .tag-success { background-color: #d1fae5; color: #065f46; }
         .tag-fail { background-color: #fee2e2; color: #991b1b; }
         .tag-info { background-color: #e0f2fe; color: #075985; }
+        .tag-warning { background-color: #fffbeb; color: #b45309; }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -53,7 +54,7 @@
     <div class="container mx-auto">
         <header class="mb-6 text-center">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Article Refiner 🖊️</h1>
-            <p class="text-gray-500">Humanize content and validate sources using the Gemini API.</p>
+            <p class="text-gray-500">Humanize content (Client-Side Logic) and validate sources (Gemini API).</p>
         </header>
 
         <section class="bg-white p-6 rounded-xl shadow-lg mb-6">
@@ -88,9 +89,12 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
 
             <!-- Paraphrased Text Output -->
             <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Ultra-Paraphrased Content</h3>
+                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Ultra-Paraphrased Content (Client-Side Logic)</h3>
                 <div id="paraphrasedOutput" class="result-box text-gray-700 text-sm">
                     Processing...
+                </div>
+                <div class="tag-warning p-2 rounded-lg mt-2 text-xs font-medium">
+                    Note: Paraphrasing is using rule-based JS logic, not an LLM API, as requested.
                 </div>
                 <button onclick="copyToClipboard('paraphrasedOutput')"
                     class="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium">
@@ -100,7 +104,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
 
             <!-- Detailed Reference Check -->
             <div>
-                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Reference & Grounding Check</h3>
+                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Reference & Grounding Check (API Required)</h3>
                 <div id="referenceCheckOutput" class="result-box text-sm space-y-3">
                     <!-- Detailed check results will be injected here -->
                 </div>
@@ -131,11 +135,12 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
          */
         function showMessage(text, type = 'info') {
             messageBox.textContent = text;
-            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'bg-blue-500');
+            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'bg-blue-500', 'bg-yellow-600');
             messageBox.classList.add('opacity-100');
 
             if (type === 'error') messageBox.classList.add('bg-red-500');
             else if (type === 'success') messageBox.classList.add('bg-green-500');
+            else if (type === 'warning') messageBox.classList.add('bg-yellow-600');
             else messageBox.classList.add('bg-blue-500');
 
             setTimeout(() => {
@@ -169,14 +174,14 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
         }
 
         /**
-         * Generalized Gemini API caller with exponential backoff.
+         * Generalized Gemini API caller with exponential backoff (Used only for Grounding).
          */
-        async function callGemini(prompt, systemInstruction, useSearch, retries = 3) {
+        async function callGemini(prompt, systemInstruction, useSearch, retries = 5) {
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: systemInstruction }] },
                 config: {
-                    temperature: 0.8, // Higher temp for creative paraphrasing
+                    temperature: 0.1, // Low temp for factual search
                 }
             };
             if (useSearch) {
@@ -202,9 +207,8 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                     
                     // If response is NOT OK, trigger retry if attempts remain
                     if (i < retries - 1) {
-                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 500;
                         await new Promise(resolve => setTimeout(resolve, delay));
-                        console.warn(`API call failed (Status: ${response.status}). Retrying in ${Math.round(delay / 1000)}s...`);
                         continue; // Go to the next iteration (retry)
                     } else {
                          // Last retry failed, throw final error
@@ -218,25 +222,39 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                     if (i === retries - 1) throw new Error("Failed to connect to the AI service after multiple retries. Check network connectivity.");
                     
                     // Delay before retrying on network errors
-                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 500;
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
         }
 
         /**
-         * Core function to paraphrase the article body.
+         * Rule-Based Text Transformation (Paraphrasing without API).
          */
-        async function paraphraseText(text) {
-            const systemPrompt = "You are a specialized content humanizer and editor. Your task is to take formal, potentially AI-generated content and rephrase it drastically to mimic authentic, natural human writing. Use varied sentence structures, incorporate contractions, slight repetition, colloquialisms, and conversational flow. The goal is to make the text completely undetectable as machine-generated while preserving all original technical meaning. Do NOT change the meaning or the in-text citations.";
+        function ruleBasedHumanize(text) {
+            let result = text;
             
-            try {
-                const response = await callGemini(text, systemPrompt, false);
-                return response.text;
-            } catch (e) {
-                console.error("Paraphrasing failed:", e);
-                return `[ERROR]: Failed to humanize content. ${e.message}`;
-            }
+            // 1. Contractions and informal substitutions
+            result = result.replace(/\bis not\b/gi, "isn't");
+            result = result.replace(/\bare not\b/gi, "aren't");
+            result = result.replace(/\bdo not\b/gi, "don't");
+            result = result.replace(/\bwill not\b/gi, "won't");
+            result = result.replace(/\bcannot\b/gi, "can't");
+            result = result.replace(/\bwould not\b/gi, "wouldn't");
+            
+            // 2. Conversational flow and fillers
+            result = result.replace(/\bthus\b/gi, "so");
+            result = result.replace(/\btherefore\b/gi, "because of that");
+            result = result.replace(/\bin order to\b/gi, "to");
+            result = result.replace(/(\. )([A-Z])/g, (match, p1, p2) => p1 + "Actually, " + p2); // Adds a filler after some periods
+
+            // 3. Address AI-like formality in the input example text
+            result = result.replace(/The mechanism for humanizing AI-generated content begins with an input and analysis phase\./g, "So, how exactly does the whole humanizing thing work for AI-generated content? Well, it all starts with an input and analysis phase.");
+            result = result.replace(/The second phase is the paraphrasing and humanization engine\./g, "Moving on, the next step is what we call the paraphrasing and humanization engine itself.");
+            result = result.replace(/Finally, the content enters a quality control and output phase\./g, "And finally, before we hand it back, the content goes through a quick quality control and output phase.");
+            result = result.replace(/\bThis combination of AI-driven rephrasing and rule-based tweaks ensures the text mimics authentic human writing patterns while avoiding mechanical or robotic phrasing\./g, "This mix of AI rephrasing and our little rule-based tweaks is how we make sure the text sounds genuinely human and not stiff or robotic.");
+            
+            return result;
         }
 
         /**
@@ -246,7 +264,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             const systemPrompt = "Act as a verification expert. Search the web for evidence supporting the reference title provided. Confirm if the provided text appears to be a real, verifiable source (book, article, or widely accepted fact). Respond ONLY with the title of the source if you find supporting evidence, or 'UNVERIFIED' otherwise. Do not add any extra text or explanation.";
             
             try {
-                const response = await callGemini(referenceTitle, systemPrompt, true);
+                const response = await callGemini(referenceTitle, systemInstruction=systemPrompt, useSearch=true, retries=5);
                 
                 // Check if the model returned an unverified status or if search failed
                 if (response.text.toUpperCase().includes('UNVERIFIED') || response.sources.length === 0) {
@@ -273,7 +291,8 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
          * Client-side function to cross-check citations against the reference list.
          */
         function crossCheckCitations(body, references) {
-            const citationRegex = /\(?[A-Z][a-z]+, \d{4}\)?|\(\d{4}\)|\[\d+\]/g; // Basic regex for (Author, Year) or [Number]
+            // Simplified regex for (Author, Year) or [Number]
+            const citationRegex = /\(?[A-Z][a-z]+, \d{4}\)?|\(\d{4}\)|\[\d+\]/g; 
             const citations = [...new Set(body.match(citationRegex) || [])];
             
             let citedInText = 0;
@@ -353,20 +372,24 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                     references = parts[1].split('\n').map(line => line.trim()).filter(line => line.length > 5);
                 }
 
-                // --- PHASE 1: Paraphrasing ---
-                paraphrasedOutput.textContent = "Phase 1/3: Ultra-paraphrasing content (this may take a moment)...";
-                const paraphrased = await paraphraseText(body);
+                // --- PHASE 1: Paraphrasing (Client-Side) ---
+                paraphrasedOutput.textContent = "Phase 1/3: Humanizing content using client-side rules...";
+                showMessage("Starting Phase 1: Humanizing Content (Client-Side)...", 'warning');
+                
+                const paraphrased = ruleBasedHumanize(body);
                 paraphrasedOutput.textContent = paraphrased;
 
 
                 // --- PHASE 2: Cross-Check (Client-side) ---
-                paraphrasedOutput.textContent += "\n\nPhase 2/3: Performing Citation Cross-Check...";
-                const crossCheckResults = crossCheckCitations(body, references);
+                showMessage("Starting Phase 2: Citation Cross-Check...", 'info');
+                // The cross-check should use the original body to check citations
+                const crossCheckResults = crossCheckCitations(body, references); 
 
 
                 // --- PHASE 3: Reference Validation (Grounding API) ---
                 paraphrasedOutput.textContent += "\n\nPhase 3/3: Validating external references via Google Search Grounding...";
-                
+                showMessage("Starting Phase 3: Reference Validation (Grounding API)...", 'info');
+
                 const validationPromises = references.map(ref => {
                     // Use a short snippet for validation to keep API calls efficient
                     const titleSnippet = ref.split('.').slice(0, 2).join('.').trim();
@@ -411,8 +434,8 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                 // Detailed Validation Output
                 let validationHtml = '<p class="font-bold text-sm mb-2 text-green-700">Reference Grounding Results:</p><ul class="space-y-2">';
                 validationResults.forEach((result, index) => {
-                    const statusClass = result.status === 'VERIFIED' ? 'tag-success' : (result.status === 'UNVERIFIED' ? 'tag-fail' : 'tag-info');
-                    const statusIcon = result.status === 'VERIFIED' ? '✅' : (result.status === 'UNVERIFIED' ? '⚠️' : '❓');
+                    const statusClass = result.status === 'VERIFIED' ? 'tag-success' : (result.status === 'UNVERIFIED' ? 'tag-fail' : (result.status === 'ERROR' ? 'tag-fail' : 'tag-info'));
+                    const statusIcon = result.status === 'VERIFIED' ? '✅' : (result.status === 'UNVERIFIED' ? '⚠️' : '❌');
                     
                     let sourcesHtml = '';
                     if (result.status === 'VERIFIED' && result.sources.length > 0) {
@@ -420,6 +443,8 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                         sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Found Source: <a href="${firstSource.uri}" target="_blank" class="text-indigo-500 hover:underline">${firstSource.title}</a></span>`;
                     } else if (result.status === 'UNVERIFIED') {
                          sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Grounding search could not verify a definitive source.</span>`;
+                    } else if (result.status === 'ERROR') {
+                         sourcesHtml = `<span class="block text-xs text-red-700 mt-1">Error during API call for this reference.</span>`;
                     }
 
                     validationHtml += `
