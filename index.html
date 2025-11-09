@@ -6,34 +6,143 @@
     <title>Article Validation & Humanizer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Adopted styles from user's template, integrated with utility classes */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f7f7f7;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            color: #333;
             touch-action: manipulation;
         }
         .container {
             max-width: 900px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        header {
+            background: #4a00e0;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 700;
+        }
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+        .main {
+            padding: 30px;
+        }
+        .input-group, .output-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
         }
         textarea, .result-box {
-            min-height: 250px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            width: 100%;
+            height: 180px;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            resize: vertical;
+            transition: all 0.3s;
+            box-sizing: border-box;
+            min-height: 200px; /* Ensure readability */
         }
-        .result-box {
-            background-color: #fff;
-            padding: 1rem;
-            border: 1px solid #e5e7eb;
-            white-space: pre-wrap;
+        textarea:focus {
+            outline: none;
+            border-color: #4a00e0;
+            box-shadow: 0 0 0 3px rgba(74, 0, 224, 0.2);
         }
-        .btn-primary {
-            transition: all 0.15s ease-in-out;
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
         }
-        .btn-primary:hover {
-            box-shadow: 0 10px 15px -3px rgb(59 130 246 / 0.3), 0 4px 6px -4px rgb(59 130 246 / 0.3);
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #processBtn {
+            background: #8e2de2;
+            color: white;
+            flex-grow: 1;
+        }
+        #processBtn:hover {
+            background: #7c1fd1;
+            transform: translateY(-2px);
+        }
+        #copyBtn {
+            background: #51cf66;
+            color: white;
+        }
+        #copyBtn:hover {
+            background: #40c957;
+        }
+        select {
+            padding: 10px 14px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .strength-meter {
+            margin-top: 10px;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .strength-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ffd43b, #ff6b6b, #51cf66);
+            transition: width 0.4s ease;
+        }
+        .tips {
+            background: #f8f9fa;
+            padding: 18px;
+            border-radius: 10px;
+            margin-top: 25px;
+            border-left: 5px solid #4a00e0;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        .tips h3 {
+            margin-top: 0;
+            color: #4a00e0;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f1f3f5;
+            color: #666;
+            font-size: 0.9em;
         }
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+            border-top: 4px solid white;
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -43,76 +152,103 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .tag-success { background-color: #d1fae5; color: #065f46; }
-        .tag-fail { background-color: #fee2e2; color: #991b1b; }
-        .tag-info { background-color: #e0f2fe; color: #075985; }
-        .tag-warning { background-color: #fffbeb; color: #b45309; }
+        .tag-success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .tag-fail { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .tag-info { background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+        .tag-warning { background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+        .result-box {
+            background-color: #fcfcfc;
+            height: auto;
+            min-height: 150px;
+            padding: 15px;
+            white-space: pre-wrap;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            button, select {
+                width: 100%;
+            }
+        }
     </style>
 </head>
-<body class="p-4 sm:p-8">
-
-    <div class="container mx-auto">
-        <header class="mb-6 text-center">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Article Refiner 🖊️</h1>
-            <p class="text-gray-500">Humanize content (Client-Side Logic) and validate sources (Gemini API).</p>
+<body>
+    <div class="container">
+        <header>
+            <h1>Article Validation & Humanizer</h1>
+            <p class="subtitle">Client-side paraphrasing + API-grounded reference validation.</p>
         </header>
 
-        <section class="bg-white p-6 rounded-xl shadow-lg mb-6">
-            <h2 class="text-xl font-semibold mb-3 text-indigo-700">Paste Article Here</h2>
-            <textarea id="articleInput"
-                      class="w-full p-4 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      placeholder="Paste your full article text here. 
-Crucial: Place the reference list/bibliography at the very end, separated by a line break, with each reference on a new line (e.g., 'REFERENCES' or 'BIBLIOGRAPHY' followed by the list).
-
-Example Article Body:
-The mechanism for humanizing AI-generated content begins with an input and analysis phase. (Smith, 2023) Users provide AI-generated text, which is first cleaned.
-
-Example Reference List:
-REFERENCES
-Smith, J. (2023). The science of non-robotic language. Journal of Linguistics.
-Doe, A. (2024). Contractions in academic writing."></textarea>
-
-            <button onclick="processArticle()" id="processBtn"
-                    class="btn-primary w-full mt-4 flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                <span id="buttonText">Process & Validate Article</span>
-                <div id="loadingSpinner" class="spinner hidden"></div>
-            </button>
-        </section>
-
-        <section id="resultsSection" class="bg-white p-6 rounded-xl shadow-lg hidden">
-            <h2 class="text-2xl font-bold mb-4 text-gray-800">Results</h2>
-
-            <!-- Validation and Cross-Check Summary -->
-            <div id="validationSummary" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Data will be injected here -->
+        <div class="main">
+            <div class="input-group">
+                <label for="articleInput">Original Text & References</label>
+                <textarea id="articleInput" placeholder="Paste your article body and reference list here. Separate the list with the heading 'REFERENCES' or 'BIBLIOGRAPHY' on a new line."></textarea>
             </div>
 
-            <!-- Paraphrased Text Output -->
-            <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Ultra-Paraphrased Content (Client-Side Logic)</h3>
-                <div id="paraphrasedOutput" class="result-box text-gray-700 text-sm">
-                    Waiting for input...
-                </div>
-                <div class="tag-warning p-2 rounded-lg mt-2 text-xs font-medium">
-                    Note: Paraphrasing is using rule-based JS logic, not an LLM API, as requested.
-                </div>
-                <button onclick="copyToClipboard('paraphrasedOutput')"
-                    class="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium">
-                    Copy to Clipboard
+            <div class="controls">
+                <button onclick="processArticle()" id="processBtn">
+                    <span id="buttonText" class="flex items-center justify-center">
+                        🚀 Process & Validate Article
+                    </span>
+                    <div id="loadingSpinner" class="spinner hidden mx-auto"></div>
                 </button>
+                <button id="copyBtn" onclick="copyToClipboard('paraphrasedOutput')">📋 Copy Result</button>
+                
+                <select id="strength">
+                    <option value="light">Light Rewrite</option>
+                    <option value="medium" selected>Medium (Recommended)</option>
+                    <option value="heavy">Heavy Rewrite</option>
+                    <option value="creative">Creative Mode</option>
+                </select>
             </div>
 
-            <!-- Detailed Reference Check -->
-            <div>
-                <h3 class="text-xl font-semibold mb-2 text-indigo-700">Reference & Grounding Check (API Required)</h3>
-                <div id="referenceCheckOutput" class="result-box text-sm space-y-3">
-                    <!-- Detailed check results will be injected here -->
+            <div class="strength-meter">
+                <div class="strength-fill" id="strengthFill"></div>
+            </div>
+
+            <div id="resultsSection" class="hidden">
+                 <!-- Validation and Cross-Check Summary -->
+                <div id="validationSummary" class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Data will be injected here -->
+                </div>
+
+                <!-- Paraphrased Text Output -->
+                <div class="output-group">
+                    <label for="paraphrasedOutput">Paraphrased Text (Humanized)</label>
+                    <div id="paraphrasedOutput" class="result-box" style="height: auto;">Waiting for input...</div>
+                    <div class="tag-warning p-2 rounded-lg mt-2 text-xs font-medium">
+                        Note: Paraphrasing uses powerful, expanded rule-based JS logic for instant, local processing.
+                    </div>
+                </div>
+
+                <!-- Detailed Reference Check -->
+                <div class="output-group">
+                    <label>Reference & Grounding Check (API Required)</label>
+                    <div id="referenceCheckOutput" class="result-box space-y-3" style="height: auto;">
+                        <!-- Detailed check results will be injected here -->
+                    </div>
                 </div>
             </div>
 
-        </section>
-        
-        <div id="messageBox" class="fixed bottom-4 right-4 p-3 rounded-lg shadow-xl text-white hidden transition-opacity duration-300 z-50"></div>
+            <div class="tips">
+                <h3>💡 Article Prep Guide</h3>
+                <ul>
+                    <li>The **Paraphrasing** is instantaneous (JS-based).</li>
+                    <li>**Citation Checks** (Phase 2) verify in-text author names match reference list author names.</li>
+                    <li>**Reference Validation** (Phase 3) requires the Gemini API with Google Search grounding to confirm if the source titles are real.</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with Pure JavaScript & Gemini API Grounding. Validation requires network.</p>
+        </footer>
+         <div id="messageBox" class="fixed bottom-4 right-4 p-3 rounded-lg shadow-xl text-white hidden transition-opacity duration-300 z-50"></div>
     </div>
 
     <script>
@@ -120,6 +256,117 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
         const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent`;
         const apiKey = ""; // Canvas will provide this
 
+        // --- Core Synonym and Rule Database (Expanded) ---
+        const synonyms = {
+            "the": ["this", "that", "such", "a", "any"],
+            "and": ["additionally", "plus", "furthermore", "moreover", "besides"],
+            "but": ["however", "yet", "nevertheless", "nonetheless", "still", "though"],
+            "because": ["since", "as", "due to", "given that", "for the reason that"],
+            "very": ["extremely", "incredibly", "highly", "exceptionally", "particularly", "super", "really"],
+            "good": ["excellent", "great", "superb", "outstanding", "fine", "wonderful", "solid", "decent"],
+            "bad": ["poor", "terrible", "awful", "dreadful", "inferior", "subpar", "lousy"],
+            "important": ["crucial", "vital", "essential", "significant", "key", "critical", "major", "fundamental"],
+            "show": ["demonstrate", "illustrate", "reveal", "display", "indicate", "exhibit", "point out", "prove"],
+            "use": ["utilize", "employ", "apply", "implement", "leverage", "tap into"],
+            "make": ["create", "build", "produce", "generate", "develop", "construct", "formulate", "forge"],
+            "get": ["obtain", "acquire", "receive", "gain", "secure", "procure", "collect"],
+            "people": ["individuals", "persons", "humans", "citizens", "folks", "the masses", "public"],
+            "think": ["believe", "consider", "assume", "regard", "deem", "opine", "feel", "figure"],
+            "said": ["stated", "mentioned", "noted", "remarked", "declared", "expressed", "spoke", "commented"],
+            "big": ["large", "huge", "enormous", "massive", "significant", "substantial", "gigantic", "sizable"],
+            "small": ["tiny", "little", "minor", "slight", "diminutive", "petite", "minute", "minimal"],
+            "help": ["assist", "aid", "support", "facilitate", "enable", "back up", "pitch in"],
+            "problem": ["issue", "challenge", "difficulty", "obstacle", "hurdle", "complication", "dilemma"],
+            "solution": ["answer", "resolution", "fix", "remedy", "key", "workaround", "way out"],
+            "new": ["novel", "fresh", "recent", "modern", "innovative", "original", "unprecedented", "current"],
+            "old": ["ancient", "aged", "vintage", "traditional", "long-standing", "archaic", "historic"],
+            "happy": ["joyful", "delighted", "pleased", "content", "cheerful", "upbeat", "thrilled"],
+            "sad": ["unhappy", "sorrowful", "depressed", "melancholy", "gloomy", "downcast", "blue"],
+            "start": ["begin", "commence", "initiate", "launch", "embark", "kick off", "get underway"],
+            "end": ["conclude", "finish", "terminate", "complete", "finalize", "wrap up", "cease"],
+            "many": ["numerous", "several", "countless", "multiple", "a lot of", "plenty of", "scores of"],
+            "few": ["scarcely any", "hardly any", "limited", "sparse", "not many", "a couple of"],
+            "always": ["consistently", "invariably", "perpetually", "eternally", "all the time", "forever"],
+            "never": ["not once", "at no time", "under no circumstances", "rarely", "hardly ever"],
+            "can": ["is able to", "has the ability to", "could", "may", "has the capacity to"],
+            "will": ["shall", "is going to", "intends to", "plans to", "is set to"],
+            "should": ["ought to", "must", "needs to", "is supposed to", "had better"],
+            "would": ["might", "could", "may", "is likely to", "might just"],
+            "like": ["such as", "for example", "including", "similar to", "akin to", "in the way of"],
+            "different": ["distinct", "unlike", "diverse", "varied", "contrasting", "separate", "dissimilar"],
+            "same": ["identical", "similar", "alike", "equivalent", "comparable", "undeniably like"],
+            "know": ["understand", "recognize", "comprehend", "grasp", "realize", "be aware of"],
+            "way": ["method", "approach", "manner", "technique", "strategy", "tactic", "route"],
+            "time": ["period", "duration", "moment", "era", "interval", "stretch"],
+            "work": ["function", "operate", "perform", "labor", "task", "job", "effort"],
+            "need": ["require", "demand", "necessitate", "want", "call for", "have a use for"],
+            "want": ["desire", "wish", "crave", "long for", "yearn", "feel like"],
+            "first": ["initial", "primary", "foremost", "leading", "premier", "starting", "original"],
+            "last": ["final", "ultimate", "concluding", "ending", "closing", "terminal"],
+            "next": ["following", "subsequent", "upcoming", "succeeding", "later"],
+            "best": ["finest", "greatest", "top", "optimal", "premier", "superior"],
+            "worst": ["poorest", "most awful", "bottom", "inferior", "lowest", "least desirable"],
+            
+            // Academic/Formal Language targets
+            "utilize": ["use", "employ", "put to work", "apply"],
+            "implement": ["start", "execute", "put in place", "roll out"],
+            "consequently": ["so", "as a result", "because of that", "due to this"],
+            "furthermore": ["also", "plus", "in addition", "what's more"],
+            "moreover": ["plus", "besides", "as well", "on top of that"],
+            "ascertain": ["figure out", "find out", "determine", "check"],
+            "commence": ["start", "begin", "kick off", "get started"],
+            "endeavor": ["try", "attempt", "work hard", "strive"],
+            "exhibit": ["show", "display", "present", "put on view"],
+            "inquire": ["ask", "check", "query", "find out"],
+            "sufficient": ["enough", "plenty", "adequate", "satisfactory"],
+            "numerous": ["many", "lots of", "several", "countless"],
+            "determine": ["find out", "figure out", "decide", "conclude"],
+            "regarding": ["about", "concerning", "on the topic of", "as for"],
+            "objective": ["goal", "aim", "target", "purpose"],
+            "component": ["part", "piece", "element", "section"],
+            "methodology": ["method", "approach", "way", "process"],
+            "involves": ["includes", "features", "has to do with", "is all about"],
+            "facilitate": ["help", "make easier", "ease", "smooth the way for"],
+            "subsequently": ["after that", "later", "following that", "next"],
+            "prioritize": ["focus on", "put first", "make important", "handle first"],
+            "demonstrate": ["show", "prove", "illustrate", "make clear"],
+            "provided that": ["if", "assuming that", "on the condition that"],
+            "irrespective of": ["regardless of", "no matter what", "even with"],
+        };
+
+        const restructureTemplates = [
+            { pattern: /(.*) is (.*) because (.*)/, template: "Due to $3, $1 turns out to be $2" },
+            { pattern: /(.*) can (.*)/, template: "$1 has the ability to $2" },
+            { pattern: /(.*) will (.*)/, template: "$1 is going to $2" },
+            { pattern: /It is (.*) that (.*)/, template: "What $2 reveals is $1" },
+            { pattern: /(.*), which (.*)/, template: "$1 — a factor that $2" },
+            { pattern: /The (.*) of (.*) is (.*)/, template: "When it comes to $2, its $1 stands at $3" },
+            { pattern: /(.*) and (.*)/, template: "Both $1 and $2" },
+            { pattern: /(.*) but (.*)/, template: "Although $1, $2" },
+            { pattern: /Not only (.*) but also (.*)/, template: "$1 in addition to $2" },
+            // Expanded templates
+            { pattern: /(.*), therefore, (.*)/, template: "$2, and the reason is $1" },
+            { pattern: /(.*) is characterized by (.*)/, template: "$1 is basically all about $2" },
+            { pattern: /The need for (.*) is (.*)/, template: "It’s $2 how much we need $1" },
+            { pattern: /We must (.*) in order to (.*)/, template: "To $2, we simply have to $1" }
+        ];
+
+        const creativeInjections = [
+            "Imagine if", "Picture this:", "Consider how", "It's fascinating that",
+            "One might argue", "Surprisingly,", "In a twist,", "Remarkably,",
+            "Think about it:", "What if", "This brings to mind", "Interestingly enough,",
+            "You see,", "Here's the thing:", "Deep down,", "At its core,",
+            "Let's be honest:", "Truth be told,", "Make no mistake:", "Without a doubt,",
+            "In reality,", "Practically speaking,", "On closer inspection,",
+            "Beneath the surface,", "Between the lines,", "When you dig deeper,",
+            "As it turns out,", "Contrary to popular belief,",
+            "It's worth noting that", "Keep in mind that", "Bear in mind,",
+            "Don't overlook the fact that", "It's crucial to understand"
+        ];
+        // --- End of Core Synonym and Rule Database ---
+
+
+        // DOM Elements
         const articleInput = document.getElementById('articleInput');
         const processBtn = document.getElementById('processBtn');
         const buttonText = document.getElementById('buttonText');
@@ -129,6 +376,18 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
         const validationSummary = document.getElementById('validationSummary');
         const referenceCheckOutput = document.getElementById('referenceCheckOutput');
         const messageBox = document.getElementById('messageBox');
+        const strengthSelect = document.getElementById('strength');
+        const strengthFill = document.getElementById('strengthFill');
+
+        // Update strength meter
+        function updateStrengthMeter() {
+            const values = { light: 30, medium: 60, heavy: 85, creative: 95 };
+            strengthFill.style.width = values[strengthSelect.value] + '%';
+        }
+        updateStrengthMeter(); // Initialize meter
+
+        strengthSelect.addEventListener('change', updateStrengthMeter);
+
 
         /**
          * Utility function to display a temporary message/alert.
@@ -160,7 +419,6 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             textarea.select();
             
             try {
-                // document.execCommand('copy') is the reliable method in an iframe
                 const successful = document.execCommand('copy');
                 if (successful) {
                     showMessage('Text copied to clipboard!', 'success');
@@ -205,13 +463,11 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                         return { text, sources: groundingSources };
                     } 
                     
-                    // If response is NOT OK, trigger retry if attempts remain
                     if (i < retries - 1) {
                         const delay = Math.pow(2, i) * 1000 + Math.random() * 500;
                         await new Promise(resolve => setTimeout(resolve, delay));
-                        continue; // Go to the next iteration (retry)
+                        continue;
                     } else {
-                         // Last retry failed, throw final error
                         const errorBody = await response.text();
                         throw new Error(`Final API error (Status: ${response.status}): ${response.statusText}. Response body: ${errorBody.substring(0, 100)}...`);
                     }
@@ -221,7 +477,6 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                     console.error('Network or unknown API error occurred:', error);
                     if (i === retries - 1) throw new Error("Failed to connect to the AI service after multiple retries. Check network connectivity.");
                     
-                    // Delay before retrying on network errors
                     const delay = Math.pow(2, i) * 1000 + Math.random() * 500;
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
@@ -231,32 +486,130 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
         /**
          * Rule-Based Text Transformation (Paraphrasing without API).
          */
-        function ruleBasedHumanize(text) {
-            let result = text;
-            
-            // 1. Contractions and informal substitutions
-            result = result.replace(/\bis not\b/gi, "isn't");
-            result = result.replace(/\bare not\b/gi, "aren't");
-            result = result.replace(/\bdo not\b/gi, "don't");
-            result = result.replace(/\bwill not\b/gi, "won't");
-            result = result.replace(/\bcannot\b/gi, "can't");
-            result = result.replace(/\bwould not\b/gi, "wouldn't");
-            
-            // 2. Conversational flow and fillers
-            result = result.replace(/\bthus\b/gi, "so");
-            result = result.replace(/\btherefore\b/gi, "because of that");
-            result = result.replace(/\bin order to\b/gi, "to");
-            result = result.replace(/(\. )([A-Z])/g, (match, p1, p2) => p1 + "Actually, " + p2); // Adds a filler after some periods
+        function ruleBasedHumanize(text, mode = 'medium') {
+            if (!text.trim()) return '';
 
-            // 3. Address AI-like formality in the input example text
-            result = result.replace(/The mechanism for humanizing AI-generated content begins with an input and analysis phase\./g, "So, how exactly does the whole humanizing thing work for AI-generated content? Well, it all starts with an input and analysis phase.");
-            result = result.replace(/The second phase is the paraphrasing and humanization engine\./g, "Moving on, the next step is what we call the paraphrasing and humanization engine itself.");
-            result = result.replace(/Finally, the content enters a quality control and output phase\./g, "And finally, before we hand it back, the content goes through a quick quality control and output phase.");
-            result = result.replace(/\bThis combination of AI-driven rephrasing and rule-based tweaks ensures the text mimics authentic human writing patterns while avoiding mechanical or robotic phrasing\./g, "This mix of AI rephrasing and our little rule-based tweaks is how we make sure the text sounds genuinely human and not stiff or robotic.");
+            // Split by double line breaks (paragraphs) or default to sentences
+            const sections = text.split(/\n\n+/);
+            let result = [];
             
-            return result;
+            const strengthMap = { light: 0.3, medium: 0.6, heavy: 0.85, creative: 0.95 };
+            const intensity = strengthMap[mode];
+
+            sections.forEach(section => {
+                let sentences = section.match(/[^\.!?]+[\.!?]+/g) || [section];
+                let newSection = [];
+
+                sentences.forEach(sentence => {
+                    let words = sentence.trim().split(/\s+/);
+                    let newSentence = '';
+                    let wordIndex = 0;
+
+                    // Apply sentence restructuring with probability
+                    let restructured = tryRestructure(sentence.trim());
+                    if (restructured && Math.random() < intensity * 0.7) {
+                        newSentence = restructured;
+                    } else {
+                        newSentence = words.map(word => {
+                            wordIndex++;
+                            let cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
+                            let punctuation = word.replace(/[\w]/g, '');
+
+                            // Synonym replacement
+                            if (synonyms[cleanWord] && Math.random() < intensity) {
+                                let options = synonyms[cleanWord].filter(s => s !== cleanWord);
+                                if (options.length > 0) {
+                                    let replacement = options[Math.floor(Math.random() * options.length)];
+                                    // Preserve capitalization
+                                    if (wordIndex === 1 || word[0] === word[0].toUpperCase()) {
+                                        replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
+                                    }
+                                    return replacement + punctuation;
+                                }
+                            }
+                            // Contraction application (simple, direct)
+                            if (wordIndex > 1 && cleanWord === 'is' && words[wordIndex] === 'not') {
+                                return "isn't";
+                            }
+                            
+                            return word;
+                        }).join(' ');
+                    }
+
+                    // Creative mode: inject natural phrases
+                    if (mode === 'creative' && Math.random() < 0.4) {
+                        const injection = creativeInjections[Math.floor(Math.random() * creativeInjections.length)];
+                        newSentence = injection + ' ' + newSentence.charAt(0).toLowerCase() + newSentence.slice(1);
+                    }
+
+                    // Vary sentence length & rhythm
+                    if (Math.random() < intensity * 0.5) {
+                        newSentence = varySentenceStructure(newSentence);
+                    }
+
+                    // Add transitional phrases between sentences
+                    if (newSection.length > 0 && Math.random() < intensity * 0.4) {
+                        const transitions = ["Moreover,", "Furthermore,", "In addition,", "Similarly,", 
+                                            "On the other hand,", "Conversely,", "Therefore,", "Thus,"];
+                        const transition = transitions[Math.floor(Math.random() * transitions.length)];
+                        newSentence = transition + ' ' + newSentence.charAt(0).toLowerCase() + newSentence.slice(1);
+                    }
+
+                    newSection.push(newSentence.trim());
+                });
+
+                let finalSection = newSection.join(' ');
+
+                // Post-processing: fix capitalization after auto-transitions
+                finalSection = finalSection.replace(/([.!?])\s*([a-z])/g, (match, p1, p2) => p1 + ' ' + p2.toUpperCase());
+                finalSection = finalSection.charAt(0).toUpperCase() + finalSection.slice(1);
+
+
+                result.push(finalSection);
+            });
+
+            let final = result.join('\n\n');
+
+            // Post-processing: fix spacing around punctuation
+            final = final.replace(/\s+([,.!?])/g, '$1');
+            final = final.replace(/(\w)\s+([,.!?])/g, '$1$2');
+
+            return final;
         }
 
+        function tryRestructure(sentence) {
+            for (let temp of restructureTemplates) {
+                if (temp.pattern.test(sentence)) {
+                    let match = sentence.match(temp.pattern);
+                    if (match) {
+                        let result = temp.template;
+                        for (let i = 1; i < match.length; i++) {
+                            result = result.replace(`$${i}`, match[i]);
+                        }
+                        return result;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function varySentenceStructure(sentence) {
+            // Split into clauses, reverse order, or combine
+            if (sentence.includes(',') && Math.random() < 0.5) {
+                let parts = sentence.split(',');
+                if (parts.length > 1) {
+                    return parts.reverse().join(' — ').trim();
+                }
+            }
+            if (sentence.length > 80 && Math.random() < 0.3) {
+                let parts = sentence.split(/[.!?]/);
+                if (parts.length > 1) {
+                    return parts[0].trim() + '. And you know what else? ' + parts.slice(1).join('. ').trim();
+                }
+            }
+            return sentence;
+        }
+        
         /**
          * Core function to validate a single reference using Google Search grounding.
          */
@@ -266,12 +619,10 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             try {
                 const response = await callGemini(referenceTitle, systemInstruction=systemPrompt, useSearch=true, retries=5);
                 
-                // Check if the model returned an unverified status or if search failed
                 if (response.text.toUpperCase().includes('UNVERIFIED') || response.sources.length === 0) {
                     return { status: 'UNVERIFIED', title: referenceTitle, sources: [] };
                 }
                 
-                // Check for real grounding sources
                 const realSources = response.sources.filter(s => s.web && s.web.uri);
 
                 if (realSources.length > 0) {
@@ -291,7 +642,6 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
          * Client-side function to cross-check citations against the reference list.
          */
         function crossCheckCitations(body, references) {
-            // Simplified regex for (Author, Year) or [Number]
             const citationRegex = /\(?[A-Z][a-z]+, \d{4}\)?|\(\d{4}\)|\[\d+\]/g; 
             const citations = [...new Set(body.match(citationRegex) || [])];
             
@@ -299,11 +649,11 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             let unreferencedInText = 0;
             let unlinkedReferences = 0;
 
-            const referenceTitles = references.map(ref => ref.toLowerCase().split(' ')[0].replace(/[^a-z]/g, ''));
+            const referenceTitles = references.map(ref => ref.toLowerCase().split(/[., ]+/).filter(word => word.length > 2)[0].replace(/[^a-z]/g, ''));
 
             // 1. Check if citations in text are in the reference list (Simplified: check for author name match)
             const citationCheck = citations.map(citation => {
-                const match = citation.match(/([A-Z][a-z]+)/); // Extract potential Author
+                const match = citation.match(/([A-Z][a-z]+)/); 
                 const author = match ? match[1].toLowerCase() : null;
 
                 const isReferenced = author && referenceTitles.some(title => title.includes(author));
@@ -319,10 +669,9 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
 
             // 2. Check if all references are cited in text (Simplified)
             const referenceCheck = references.map(ref => {
-                const match = ref.match(/([A-Z][a-z]+)/); // Extract potential Author
+                const match = ref.match(/([A-Z][a-z]+)/); 
                 const author = match ? match[1].toLowerCase() : null;
 
-                // Check if this author is in any of the extracted citations
                 const isCited = author && citationCheck.some(c => c.citation.toLowerCase().includes(author));
 
                 if (!isCited) {
@@ -355,10 +704,10 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
 
             // UI State: Disable button, show spinner
             processBtn.disabled = true;
-            buttonText.textContent = "Processing...";
+            buttonText.textContent = "Processing (Phase 1/3)...";
             loadingSpinner.classList.remove('hidden');
             resultsSection.classList.add('hidden');
-            paraphrasedOutput.textContent = "Processing...";
+            paraphrasedOutput.textContent = "Beginning analysis...";
             validationSummary.innerHTML = "";
             referenceCheckOutput.innerHTML = "";
             
@@ -366,6 +715,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                 // 1. Separate body from references
                 const parts = fullText.split(/REFERENCES|BIBLIOGRAPHY|SOURCES/i);
                 const body = parts[0].trim();
+                const mode = strengthSelect.value;
                 let references = [];
 
                 if (parts.length > 1) {
@@ -373,22 +723,21 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                 }
 
                 // --- PHASE 1: Paraphrasing (Client-Side) ---
-                const paraphrased = ruleBasedHumanize(body);
+                const paraphrased = ruleBasedHumanize(body, mode);
                 paraphrasedOutput.textContent = paraphrased;
-                showMessage("Phase 1: Content humanized instantly using client-side rules.", 'success');
-
+                showMessage("Phase 1: Content humanized instantly.", 'success');
 
                 // --- PHASE 2: Cross-Check (Client-side) ---
-                showMessage("Phase 2: Citation Cross-Check starting...", 'info');
+                buttonText.textContent = "Processing (Phase 2/3)...";
                 const crossCheckResults = crossCheckCitations(body, references); 
                 showMessage("Phase 2: Citation Cross-Check complete.", 'success');
 
 
                 // --- PHASE 3: Reference Validation (Grounding API) ---
+                buttonText.textContent = "Processing (Phase 3/3 - API Call)...";
                 showMessage("Phase 3: Validating references via Google Search Grounding...", 'warning');
 
                 const validationPromises = references.map(ref => {
-                    // Use a short snippet for validation to keep API calls efficient
                     const titleSnippet = ref.split('.').slice(0, 2).join('.').trim();
                     return validateReference(titleSnippet);
                 });
@@ -396,40 +745,42 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                 const validationResults = await Promise.all(validationPromises);
                 
                 // --- Display Results ---
-
+                
                 // Summary Tags
                 validationSummary.innerHTML = `
-                    <div class="p-4 rounded-lg shadow tag-info">
+                    <div class="p-4 rounded-xl shadow tag-info">
                         <p class="text-xs font-bold uppercase mb-1">Total References</p>
-                        <p class="text-2xl">${references.length}</p>
+                        <p class="text-3xl font-extrabold">${references.length}</p>
                     </div>
-                    <div class="p-4 rounded-lg shadow ${crossCheckResults.unreferencedInText > 0 || crossCheckResults.unlinkedReferences > 0 ? 'tag-fail' : 'tag-success'}">
+                    <div class="p-4 rounded-xl shadow ${crossCheckResults.unreferencedInText > 0 || crossCheckResults.unlinkedReferences > 0 ? 'tag-fail' : 'tag-success'}">
                         <p class="text-xs font-bold uppercase mb-1">Citation Match Issues</p>
-                        <p class="text-2xl">${crossCheckResults.unreferencedInText + crossCheckResults.unlinkedReferences}</p>
-                        <p class="text-xs mt-1">(${crossCheckResults.unreferencedInText} unreferenced in text / ${crossCheckResults.unlinkedReferences} unlinked references)</p>
+                        <p class="text-3xl font-extrabold">${crossCheckResults.unreferencedInText + crossCheckResults.unlinkedReferences}</p>
+                        <p class="text-xs mt-1">(${crossCheckResults.unreferencedInText} unreferenced / ${crossCheckResults.unlinkedReferences} unlinked)</p>
                     </div>
-                    <div class="p-4 rounded-lg shadow ${validationResults.every(r => r.status === 'VERIFIED') ? 'tag-success' : 'tag-fail'}">
+                    <div class="p-4 rounded-xl shadow ${validationResults.every(r => r.status === 'VERIFIED') ? 'tag-success' : 'tag-fail'}">
                         <p class="text-xs font-bold uppercase mb-1">References Verified</p>
-                        <p class="text-2xl">${validationResults.filter(r => r.status === 'VERIFIED').length} / ${references.length}</p>
+                        <p class="text-3xl font-extrabold">${validationResults.filter(r => r.status === 'VERIFIED').length} / ${references.length}</p>
                     </div>
                 `;
 
                 // Detailed Cross-Check Output
-                let crossCheckHtml = '<p class="font-bold text-sm mb-2 text-red-700">Citation Cross-Check Issues:</p>';
+                let crossCheckHtml = '<p class="font-bold text-sm mb-2 text-indigo-700">Citation Cross-Check Results:</p>';
                 if (crossCheckResults.unreferencedInText > 0) {
-                    crossCheckHtml += `<p class="text-sm text-red-500">❌ The following in-text citations might be missing from the reference list: ${crossCheckResults.citationCheck.filter(c => !c.isReferenced).map(c => c.citation).join(', ')}</p>`;
+                    crossCheckHtml += `<p class="text-sm text-red-500 mb-2">❌ **Unreferenced Citations:** The following in-text citations might be missing from the reference list: 
+                        <span class="font-mono text-xs">${crossCheckResults.citationCheck.filter(c => !c.isReferenced).map(c => c.citation).join(', ')}</span></p>`;
                 }
                 if (crossCheckResults.unlinkedReferences > 0) {
-                    crossCheckHtml += `<p class="text-sm text-red-500">❌ The following references were not found to be cited in the article body: ${crossCheckResults.referenceCheck.filter(c => !c.isCited).map(c => c.reference.substring(0, 30) + '...').join('; ')}</p>`;
+                    crossCheckHtml += `<p class="text-sm text-red-500 mb-2">❌ **Uncited References:** The following references were not found to be cited in the article body: 
+                        <span class="font-mono text-xs">${crossCheckResults.referenceCheck.filter(c => !c.isCited).map(c => c.reference.substring(0, 30) + '...').join('; ')}</span></p>`;
                 }
                 if (crossCheckResults.unreferencedInText === 0 && crossCheckResults.unlinkedReferences === 0) {
-                    crossCheckHtml = '<p class="font-bold text-sm text-green-700">✅ Citation Cross-Check: All in-text citations match a reference, and all references are cited.</p>';
+                    crossCheckHtml += '<p class="font-bold text-sm text-green-700">✅ Cross-Check Success: All citations match and all references are cited.</p>';
                 }
-                referenceCheckOutput.innerHTML += `<div class="p-3 rounded-lg border-b border-gray-200">${crossCheckHtml}</div>`;
+                referenceCheckOutput.innerHTML = `<div class="p-3 rounded-lg border-b border-gray-200">${crossCheckHtml}</div>`;
 
 
                 // Detailed Validation Output
-                let validationHtml = '<p class="font-bold text-sm mb-2 text-green-700">Reference Grounding Results:</p><ul class="space-y-2">';
+                let validationHtml = '<p class="font-bold text-sm mt-4 mb-2 text-indigo-700">Reference Grounding Verification:</p><ul class="space-y-2">';
                 validationResults.forEach((result, index) => {
                     const statusClass = result.status === 'VERIFIED' ? 'tag-success' : (result.status === 'UNVERIFIED' ? 'tag-fail' : (result.status === 'ERROR' ? 'tag-fail' : 'tag-info'));
                     const statusIcon = result.status === 'VERIFIED' ? '✅' : (result.status === 'UNVERIFIED' ? '⚠️' : '❌');
@@ -439,13 +790,13 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                         const firstSource = result.sources[0].web;
                         sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Found Source: <a href="${firstSource.uri}" target="_blank" class="text-indigo-500 hover:underline">${firstSource.title}</a></span>`;
                     } else if (result.status === 'UNVERIFIED') {
-                         sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Grounding search could not verify a definitive source.</span>`;
+                         sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Grounding search could not verify a definitive, real source.</span>`;
                     } else if (result.status === 'ERROR') {
-                         sourcesHtml = `<span class="block text-xs text-red-700 mt-1">Error during API call for this reference. This might be due to network timeout or strict firewall rules.</span>`;
+                         sourcesHtml = `<span class="block text-xs text-red-700 mt-1">Error during network call for this reference.</span>`;
                     }
 
                     validationHtml += `
-                        <li class="p-3 rounded-lg ${statusClass}">
+                        <li class="p-3 rounded-xl ${statusClass}">
                             <div class="flex items-start">
                                 <span class="text-lg mr-2">${statusIcon}</span>
                                 <div class="flex-1">
@@ -465,12 +816,12 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
 
             } catch (error) {
                 console.error("An ultimate error occurred:", error);
-                paraphrasedOutput.textContent = `An error occurred during processing: ${error.message}. Please check your input and try again.`;
+                paraphrasedOutput.textContent = `An error occurred during final processing: ${error.message}. Please check your input and try again.`;
                 showMessage("Processing failed. See console for details.", 'error');
             } finally {
                 // UI State: Re-enable button, hide spinner
                 processBtn.disabled = false;
-                buttonText.textContent = "Process & Validate Article";
+                buttonText.textContent = "🚀 Process & Validate Article";
                 loadingSpinner.classList.add('hidden');
             }
         }
