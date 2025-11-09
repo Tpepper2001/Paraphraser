@@ -192,25 +192,34 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                         body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        if (response.status === 429 && i < retries - 1) {
-                            // Rate limit: wait and retry with exponential backoff
-                            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
-                        }
-                        throw new Error(`API error: ${response.statusText}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Error: Could not retrieve generated text.';
+                        const groundingSources = result.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
+                        
+                        return { text, sources: groundingSources };
+                    } 
+                    
+                    // If response is NOT OK, trigger retry if attempts remain
+                    if (i < retries - 1) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        console.warn(`API call failed (Status: ${response.status}). Retrying in ${Math.round(delay / 1000)}s...`);
+                        continue; // Go to the next iteration (retry)
+                    } else {
+                         // Last retry failed, throw final error
+                        const errorBody = await response.text();
+                        throw new Error(`Final API error (Status: ${response.status}): ${response.statusText}. Response body: ${errorBody.substring(0, 100)}...`);
                     }
 
-                    const result = await response.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Error: Could not retrieve generated text.';
-                    const groundingSources = result.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
-                    
-                    return { text, sources: groundingSources };
 
                 } catch (error) {
-                    console.error('API call failed:', error);
-                    if (i === retries - 1) throw new Error("Failed to connect to the AI service after multiple retries.");
+                    console.error('Network or unknown API error occurred:', error);
+                    if (i === retries - 1) throw new Error("Failed to connect to the AI service after multiple retries. Check network connectivity.");
+                    
+                    // Delay before retrying on network errors
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
         }
@@ -446,4 +455,5 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
     </script>
 </body>
 </html>
+
 
