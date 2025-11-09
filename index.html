@@ -91,7 +91,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             <div class="mb-6">
                 <h3 class="text-xl font-semibold mb-2 text-indigo-700">Ultra-Paraphrased Content (Client-Side Logic)</h3>
                 <div id="paraphrasedOutput" class="result-box text-gray-700 text-sm">
-                    Processing...
+                    Waiting for input...
                 </div>
                 <div class="tag-warning p-2 rounded-lg mt-2 text-xs font-medium">
                     Note: Paraphrasing is using rule-based JS logic, not an LLM API, as requested.
@@ -358,7 +358,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
             buttonText.textContent = "Processing...";
             loadingSpinner.classList.remove('hidden');
             resultsSection.classList.add('hidden');
-            paraphrasedOutput.textContent = "Beginning analysis and humanization...";
+            paraphrasedOutput.textContent = "Processing...";
             validationSummary.innerHTML = "";
             referenceCheckOutput.innerHTML = "";
             
@@ -373,22 +373,19 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                 }
 
                 // --- PHASE 1: Paraphrasing (Client-Side) ---
-                paraphrasedOutput.textContent = "Phase 1/3: Humanizing content using client-side rules...";
-                showMessage("Starting Phase 1: Humanizing Content (Client-Side)...", 'warning');
-                
                 const paraphrased = ruleBasedHumanize(body);
                 paraphrasedOutput.textContent = paraphrased;
+                showMessage("Phase 1: Content humanized instantly using client-side rules.", 'success');
 
 
                 // --- PHASE 2: Cross-Check (Client-side) ---
-                showMessage("Starting Phase 2: Citation Cross-Check...", 'info');
-                // The cross-check should use the original body to check citations
+                showMessage("Phase 2: Citation Cross-Check starting...", 'info');
                 const crossCheckResults = crossCheckCitations(body, references); 
+                showMessage("Phase 2: Citation Cross-Check complete.", 'success');
 
 
                 // --- PHASE 3: Reference Validation (Grounding API) ---
-                paraphrasedOutput.textContent += "\n\nPhase 3/3: Validating external references via Google Search Grounding...";
-                showMessage("Starting Phase 3: Reference Validation (Grounding API)...", 'info');
+                showMessage("Phase 3: Validating references via Google Search Grounding...", 'warning');
 
                 const validationPromises = references.map(ref => {
                     // Use a short snippet for validation to keep API calls efficient
@@ -444,7 +441,7 @@ Doe, A. (2024). Contractions in academic writing."></textarea>
                     } else if (result.status === 'UNVERIFIED') {
                          sourcesHtml = `<span class="block text-xs text-gray-500 mt-1">Grounding search could not verify a definitive source.</span>`;
                     } else if (result.status === 'ERROR') {
-                         sourcesHtml = `<span class="block text-xs text-red-700 mt-1">Error during API call for this reference.</span>`;
+                         sourcesHtml = `<span class="block text-xs text-red-700 mt-1">Error during API call for this reference. This might be due to network timeout or strict firewall rules.</span>`;
                     }
 
                     validationHtml += `
